@@ -5,7 +5,59 @@ format: typst
 
 ### 2024 Election Results and the 2024 District Map
 
-
+```{r}
+library(tidyverse)
+sv <- read_csv("data/g24_sov_by_g24_svprec.csv")
+sv <- sv |>
+  mutate(
+    CNGDEM01 = as.numeric(CNGDEM01),
+    CNGREP01 = as.numeric(CNGREP01)
+  )
+district_votes <- sv |>
+     group_by(CDDIST) |>
+    summarize(
+        dem_total= sum(CNGDEM01, na.rm = TRUE),
+        rep_total= sum(CNGREP01, na.rm= TRUE)
+    ) |>
+        mutate(
+            total= dem_total + rep_total, 
+            dem_share = dem_total/ total)
+    district_votes |>
+        summarize(
+            dep_seats= sum(dem_total > rep_total),
+            rep_seats= sum(rep_total > dem_total)
+        )
+```
 
 ### 2024 Election Results and the proposed 2025 District Map
+
+```{r}
+ab604 <- read_csv("data/ab604_district_results.csv")
+ab604 |>
+summarize( 
+    dep_seats= sum(dem_total > rep_total),
+    rep_seats = sum(rep_total > dem_total)
+)
+ab604 <- ab604 |>
+    mutate(total= dem_total + rep_total,
+    dem_share= dem_total/ total)
+mean_share <- mean(ab604$dem_share, na.rm = TRUE)
+median_share <-median(ab604$dem_share, na.rm= TRUE)
+mean_median_score <- mean_share - median_share
+mean_median_score
+ab604 <- ab604 |>
+    mutate(
+        win= if_else(dem_total > rep_total, "D", "R"), 
+        threshold= floor(total/2) +1, 
+        wasted_dem = if_else(win == "D", dem_total - threshold, dem_total), 
+        wasted_rep = if_else(win == "R", rep_total - threshold, rep_total)
+    )
+    efficiency_gap <- (sum(ab604$wasted_dem)- sum(ab604$wasted_rep)) / sum(ab604$total)
+    efficiency_gap
+tibble(
+    Plan= "AB604 Proposed Map", 
+    Mean_Median_Score= round(mean_median_score, 3), 
+    Efficiency_Gap= round(efficiency_gap, 3)
+)
+```
 

@@ -3,26 +3,69 @@ title: Exploratory Data Analysis
 format: typst
 ---
 
+```{r}
+
+library(tidyverse)
+library(readr)
+library(sf)
+sv <- read_csv("data/g24_sov_by_g24_svprec.csv")
+names(sv)
+```
+
 ### Question 1
-
-Put your question here.
-
+Which district recorded the narrowest margin of victory?
 ### Answer 1
-
-Put your answer here.
+```{r}
+sv <- sv |>
+  mutate(
+    CNGDEM01 = as.numeric(CNGDEM01),
+    CNGREP01 = as.numeric(CNGREP01)
+  )
+closest_race <- sv |>
+    group_by(CDDIST) |>
+    summarize(
+        dem_total= sum(CNGDEM01, na.rm = TRUE),
+        rep_total= sum(CNGREP01, na.rm= TRUE)
+    ) |>
+        mutate(
+            total_votes= dem_total + rep_total,
+            margin= abs(dem_total - rep_total)/ total_votes * 100)|>
+                arrange(margin)
+    head(closest_race, 1)
+```
 
 ### Question 2
-
-Put your question here.
-
+What was the average number of vote cast per precinct? 
 ### Answer 2
-
-Put your answer here.
+```{r}
+sv |>
+    mutate(total_votes = as.numeric(CNGDEM01)+ as.numeric(CNGREP01)) |>
+    summarize(avg_votes= mean(total_votes, na.rm = TRUE))
+```
 
 ### Question 3
-
-Put your question here.
-
+How many races were close, and how many were blowouts? 
 ### Answer 3
-
-Put your answer here.
+```{r}
+sv <- sv |>
+  mutate(
+    CNGDEM01 = as.numeric(CNGDEM01),
+    CNGREP01 = as.numeric(CNGREP01)
+  )
+race_summary <- sv |>
+     group_by(CDDIST) |>
+    summarize(
+        dem_total= sum(CNGDEM01, na.rm = TRUE),
+        rep_total= sum(CNGREP01, na.rm= TRUE)
+    ) |>
+        mutate(
+            margin= abs(dem_total - rep_total)/ (dem_total + rep_total)  * 100, 
+            type = case_when(
+                margin < 5 ~"Close (<5%)", 
+                margin > 20 ~ "Blowout (>20%)", 
+                TRUE ~ "Medium"
+            )
+        )
+        race_summary |>
+            count(type)
+```

@@ -3,3 +3,59 @@ title: Dashboard
 format: dashboard
 ---
 
+
+```{r}
+library(ggplot2)
+library(tidyverse)
+library(dplyr)
+library(sf)
+votes <- read_csv("data/state_g24_sov_data_by_g24_srprec.csv") |>
+  mutate(
+    CNGDEM01 = as.numeric(CNGDEM01),
+    CNGREP01 = as.numeric(CNGREP01)
+  )
+new_results <- read_csv("data/ab604_district_results.csv")
+old_results <- votes |>
+    group_by(CDDIST) |>
+    summarize(
+        dem_total = sum(CNGDEM01, na.rm= TRUE),
+        rep_total = sum(CNGREP01, na.rm= TRUE)
+    ) |>
+        mutate(
+            total= dem_total + rep_total,
+            dem_share= dem_total/ total
+        )
+        ca_old <- st_read("data/tl_2024_06_cd119/tl_2024_06_cd119.shp") |>
+            st_transform(3310)
+        ca_new <- st_read("data/AB604/AB604.shp") |>
+            st_transform(3310)
+        ggplot()+
+            geom_sf(data= ca_old, fill= "lightblue", color= "pink") +
+            ggtitle("California Congressional Districts 2024 Map")
+        ggplot()+
+            geom_sf(data= ca_new, fill= "brown", color= "orange") +
+            ggtitle("California Congressional Districts Proposed AB604 Map")
+        old_seats <-sum(old_results$dem_share > 0.5)
+        new_seats <- sum(new_results$dem_share > 0.5)
+        old_seats
+        new_seats
+        mean_median <- function(shares){
+            mean(shares) - median(shares)
+        }
+        old_mm <- mean_median(old_results$dem_share)
+        new_mm <- mean_median(new_results$dem_share)
+        old_mm
+        new_mm
+        eff_gap <- function(dem,rep) {
+            wasted_dem<- ifelse(dem > rep, dem -(rep +1), dem)
+            wasted_rep <-ifelse(rep > dem, rep -(dem +1), rep)
+            sum(wasted_dem - wasted_rep)/ sum(dem + rep)
+        }
+        old_eg <- eff_gap(old_results$dem_total, old_results$rep_total)
+        new_eg <- eff_gap(new_results$dem_total, new_results$rep_total)
+        old_eg
+        new_eg
+```
+
+
+I used precinct-level vote data from the California Statewide Database's 2024 General Election results. To find the official 2024 district outcomes, I combined all precinct votes within each congressional district using the CDDIST column. To estimate results for the AB604 map, I matched precinct shapes with the new district shapes. I calculated what portion of each precinct was in each new district and assigned votes based on those areas. Then, I added up the adjusted votes for each AB604 district. For both maps, I calculated seats won, the mean-median score, and the efficiency gap. These measures help compare fairness, but they have limits. Prorated votes assume people in each precinct vote the same way, some races are not just between two parties, and no single measure can full show if a map is gerrymandered.

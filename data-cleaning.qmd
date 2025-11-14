@@ -1,5 +1,64 @@
 ---
 title: Data Cleaning
 format: typst
+
 ---
+
+```{r}
+library(tidyverse)
+library(readr)
+library(sf)
+library(dplyr)
+```
+
+## Part 5
+```{r}
+library(tidyverse)
+library(sf)
+sr_votes <- read_csv("data/state_g24_sov_data_by_g24_srprec.csv") |>
+  mutate(
+    CNGDEM01 = as.numeric(CNGDEM01),
+    CNGREP01 = as.numeric(CNGREP01)
+  )
+sr_shp <- st_read("data/srprec_state_g24_v01_shp/srprec_state_g24_v01_shp.shp")
+ab604  <- st_read("data/AB604/AB604.shp")
+stopifnot("geometry" %in% names(sr_shp))
+stopifnot("geometry" %in% names(ab604))
+sr_shp <- st_transform(sr_shp, 3310)
+ab604  <- st_transform(ab604, 3310)
+sr_shp <- sr_shp |> filter(!st_is_empty(geometry)) |> st_make_valid()
+ab604  <- ab604 |> filter(!st_is_empty(geometry)) |> st_make_valid()
+sr_geo <- sr_shp |> left_join(sr_votes, by = "SRPREC")
+stopifnot("geometry" %in% names(sr_geo))
+intersected <- suppressWarnings(st_intersection(sr_geo, ab604))
+stopifnot("geometry" %in% names(intersected))
+intersected <- intersected |>
+  mutate(
+    area_share = as.numeric(st_area(geometry)) /
+                 as.numeric(st_area(sr_geo[match(SRPREC, sr_geo$SRPREC), ])),
+    dem_adj = CNGDEM01 * area_share,
+    rep_adj = CNGREP01 * area_share
+  )
+ab604_results <- intersected |>
+  st_drop_geometry() |>
+  group_by(DISTRICT) |>
+  summarise(
+    dem_total = sum(dem_adj, na.rm = TRUE),
+    rep_total = sum(rep_adj, na.rm = TRUE)
+  ) |>
+  mutate(
+    total = dem_total + rep_total,
+    dem_share = dem_total / total
+  )
+write_csv(ab604_results, "data/ab604_district_results.csv")
+```
+
+
+## Part 2
+```{r}
+sv_raw <-read_csv("data/g24_sov_by_g24_svprec.csv")
+names(sv_raw) <- tolower(names(sv_raw))
+sv_raw <- sv_raw|>
+    mutate(across(where(is.character), str_trim))
+write_csv(sv_raw, "data/g24_svprec_clean.csv")
 
